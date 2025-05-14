@@ -1,1 +1,1 @@
-# MATH334_MiniProject
+Joseph Gallegos Miniproject: NYC MTA Graphing
