@@ -1,94 +1,114 @@
-COLORS = {
-    "RED": ["1", "2", "3"],
-    "BLUE": ["A", "C", "E"],
-    "YELLOW": ["N", "Q", "R"],
-    "GREEN": ["4", "5", "6"],
-    "ORANGE": ["B", "D", "F", "M"],
-    "BROWN": ["J", "Z"],
-    "GRAY": "L",
-    "PURPLE": "7",
-    "LIME": "G",
-    "GRAY": ["L", "S"]
-}
+from getData import Stop, Line, addStopsToLine, orderStops, lines, linesDict, stopsDict
+from collections import deque
 
-# Determining the color for the visual representation later
-def determineColor(lineName):
-    for color in COLORS:
-        if lineName in COLORS[color]:
-            return color
-    return "GRAY"
+def bfs_path(start_name, end_name):
+    start = stopsDict.get(start_name)
+    end = stopsDict.get(end_name)
 
-class Stop():
-    def __init__(self, name):
-        self.name = name
-        self.goesTo = []
+    if not start or not end:
+        return None
+    
+    queue = deque()
+    queue.append((start, [start.name]))
+    visited = set()
+    visited.add(start)
 
-    def __str__(self):
-        return self.name
+    while queue:
+        current_stop, path = queue.popleft()
 
-class Line():
-    def __init__(self, lineName):
-        self.lineName = lineName
-        self.stops = []
-        self.color = determineColor(lineName)
+        if current_stop == end:
+            return path
 
-    def __str__(self):
-        return self.lineName
+        # Go through the current line
+        for line in current_stop.goesTo:
+            stops = line.orderedStops
+            if current_stop in stops:
+                idx = stops.index(current_stop)
+                neighbors = []
+                if idx > 0:
+                    neighbors.append(stops[idx - 1])
+                if idx < len(stops) - 1:
+                    neighbors.append(stops[idx + 1])
 
-lines = []
-linesDict = {}
+                for neighbor in neighbors:
+                    if neighbor not in visited:
+                        visited.add(neighbor)
+                        queue.append((neighbor, path + [neighbor.name]))
 
-# Initializing subway information with dataset
-with open("MTA_Subway_Stations.csv", "r") as reader:
-    added = []
-    for line in reader:
-        curr = line.split(",")
-        tempLines = []
-        # Adding lines into lines list
-        if len(curr[8]) == 1:
-            if curr[8] not in added:
-                added.append(curr[8])
-                lines.append(Line(curr[8]))
-                tempLines.append(lines[-1])
-                linesDict[curr[8]] = lines[-1]
-            else:
-                tempLines.append(linesDict[curr[8]])
-        elif " " in curr[8]:
-            temp = (curr[8]).split(" ")
-            for val in temp:
-                if len(val) == 1 and val not in added:
-                    added.append(val)
-                    lines.append(Line(val))
-                    tempLines.append(lines[-1])
-                    linesDict[val] = lines[-1]
-                elif len(val) == 1:
-                    tempLines.append(linesDict[val])
-        else:
-            continue
+        #  Check transfers
+        for line in current_stop.goesTo:
+            for stop in line.orderedStops:
+                if stop.name == current_stop.name and stop != current_stop and stop not in visited:
+                    visited.add(stop)
+                    queue.append((stop, path + [stop.name]))
 
-        # Adding stop to adjacency lists
-        for i in range(len(tempLines)):
-            (tempLines[i].stops).append(Stop(curr[5]))
-            for x in range(i, len(tempLines)):
-                pass
+    return None
 
-    reader.close()
+def interact():
 
-for line in lines:
-    print(line)
+    linesStr = ""
+    for line in range(len(lines) - 1):
+        linesStr += f"{lines[line]}, "
+    linesStr += f"{lines[-1]}\n"
+    print("\nWelcome to the MTA Subway System! From the list below, which subway line are you starting at?")
+    print(linesStr)
+    chosenLine = input()
 
-print("--------------")
+    # Invalid response
+    while chosenLine.upper() not in linesDict:
+        print("\nInvalid Response. Which subway line are you starting at? (Hint: Choose from the list!)")
+        print(linesStr)
+        chosenLine = input()
 
-for stopNames in lines[5].stops:
-    print(stopNames) 
+    possibleStarts = ""
+    for stop in range(len(linesDict[chosenLine].orderedStops) - 1):
+        possibleStarts += f"{linesDict[chosenLine].orderedStops[stop].name}, "
+    possibleStarts += f"{linesDict[chosenLine].orderedStops[-1].name}\n"
+    print("\nPlease choose a stop from below to start at. \nIt's important that you enter it exactly as it's shown in the list below!")
+    print(possibleStarts)
 
-print("--------------")
+    # Invalid response
+    chosenStop = input()
+    while chosenStop not in possibleStarts and chosenStop not in ", ":
+        print("\nInvalid Response. Which stop are you starting from? (Hint: Choose from the list!)")
+        print(possibleStarts)
+        chosenStop = input()
 
-for adjacent in lines[5].stops[21].goesTo:
-    print(adjacent)
-        
-        
+    print("\nTo find a destination, choose a subway line again.")
+    print(linesStr)
+    chosenLine2 = input()
 
-        
+    # Invalid response
+    while chosenLine2.upper() not in linesDict:
+        print("\nInvalid Response. Which subway line has your destination? (Hint: Choose from the list!)")
+        print(linesStr)
+        chosenLine2= input()
 
+    possibleEnds = ""
+    for stop in range(len(linesDict[chosenLine2].orderedStops) - 1):
+        possibleEnds += f"{linesDict[chosenLine2].orderedStops[stop].name}, "
+    possibleEnds += f"{linesDict[chosenLine2].orderedStops[-1].name}\n"
+    print("\nPlease choose a stop from below to end at. \nIt's important that you enter it exactly as it's shown in the list below!")
+    print(possibleEnds)
 
+    # Invalid response
+    endStop = input()
+    while endStop not in possibleEnds and endStop not in ", ":
+        print("\nInvalid Response. Which stop are you starting from? (Hint: Choose from the list!)")
+        print(possibleEnds)
+        endStop = input()
+    
+    foundPath = bfs_path(chosenStop, endStop)
+    if foundPath == None:
+        print("We couldn't find a path between those two stops, sorry! :(")
+        return
+    
+    pathStr = ""
+    for stop in range(len(foundPath) - 1):
+        pathStr += f"{foundPath[stop]} -> "
+    pathStr += f"{foundPath[-1]}"
+
+    print(f"\nYour path from {chosenStop} to {endStop} is:\n{pathStr}\n")
+    print("Thank you for using my program and enjoy your trip!\n")
+
+interact()
